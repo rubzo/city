@@ -206,17 +206,20 @@ class World:
         print("Agent count: {}".format(len(self.world)))
 
 world = World()
+
+width = 120
+height = 40
+
+for i in xrange(0, width):
+    world.seedAgent(Blocker(), i, 0)
+    world.seedAgent(Blocker(), i, height)
+for i in xrange(0, height):
+    world.seedAgent(Blocker(), 0, i)
+    world.seedAgent(Blocker(), width, i)
+
 road = VerticalRoad()
-world.seedAgent(road, 0, 0)
-for i in xrange(-20, 21):
-    blocker = Blocker()
-    world.seedAgent(blocker, -20, i)
-    blocker = Blocker()
-    world.seedAgent(blocker, 20, i)
-    blocker = Blocker()
-    world.seedAgent(blocker, i, -20)
-    blocker = Blocker()
-    world.seedAgent(blocker, i, 20)
+world.seedAgent(road, width/2, height/2)
+
 
 realtime = len(sys.argv) > 1 and sys.argv[1] == "realtime"
 
