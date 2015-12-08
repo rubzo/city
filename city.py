@@ -8,21 +8,21 @@ class Agent(object):
     def __init__(self):
         self.x = 0
         self.y = 0
-        self.icon = "x"
+        self.color = "black"
 
-    def getSelf(self):
-        return self.icon
+    def getColor(self):
+        return self.color
 
     def update(self, world):
         return ("alive", self.x, self.y)
 
 class Blocker(Agent):
     def __init__(self):
-        self.icon = "#"
+        self.color = "white"
 
 class Residential(Agent):
     def __init__(self):
-        self.icon = '\033[92m' + "R" + '\033[0m'
+        self.color = "green"
 
         self.chance_become_derelict = 0.001
 
@@ -41,7 +41,7 @@ class Residential(Agent):
 
 class Derelict(Agent):
     def __init__(self):
-        self.icon = '\033[95m' + "x" + '\033[0m'
+        self.color = "red"
 
         self.chance_cleanup = 0.0005
 
@@ -52,19 +52,19 @@ class Derelict(Agent):
 
 class Commercial(Agent):
     def __init__(self):
-        self.icon = '\033[94m' + "C" + '\033[0m'
+        self.color = "blue"
 
 class Industrial(Agent):
     def __init__(self):
-        self.icon = '\033[93m' + "I" + '\033[0m'
+        self.color = "yellow"
 
 class Road(Agent):
     def __init__(self):
-        pass
+        self.color = "gray"
 
 class VerticalRoad(Road):
     def __init__(self):
-        self.icon = "|"
+        self.color = "#282B2A"
         self.chance_extend = 0.05
         self.chance_spawn_junction = 0.09
         self.chance_spawn_building = 0.001
@@ -91,7 +91,7 @@ class VerticalRoad(Road):
 
 class HorizontalRoad(Road):
     def __init__(self):
-        self.icon = "-"
+        self.color = "#282B2A"
         self.chance_extend = 0.05
         self.chance_spawn_junction = 0.09
         self.chance_spawn_building = 0.001
@@ -118,7 +118,7 @@ class HorizontalRoad(Road):
 
 class CrossRoad(Road):
     def __init__(self):
-        self.icon = "+"
+        self.color = "#282B2A"
         self.chance_extend = 0.05
         self.chance_spawn_junction = 0.09
         self.chance_spawn_building = 0.001
@@ -133,15 +133,7 @@ class CrossRoad(Road):
         if random.random() < self.chance_extend:
             world.checkEmptyAndSpawnThisType(VerticalRoad, self.x, self.y + 1)
 
-
         return ("alive", self.x, self.y)
-
-
-    #def check_and_spawn_building(self, world, x, y):
-    #    if world.world.get((x, y)) == None:
-    #        building = random.choice([Residential(), Commercial(), Industrial()])
-    #        world.spawnAgent(building, x, y)
-
 
 class World:
     def __init__(self):
@@ -193,22 +185,24 @@ class World:
         agent.y = y
         self.next_world[(x, y)] = agent
 
-    def draw(self):
+    def draw(self, canvas, scale):
         for y in range(self.y_min, self.y_max+1):
-            line = " "
             for x in range(self.x_min, self.x_max+1):
                 agent = self.world.get((x, y), None)
+                color = 'black'
+                outline = 'black'
                 if agent:
-                    line += agent.getSelf()
-                else:
-                    line += " "
-            print(line)
-        print("Agent count: {}".format(len(self.world)))
+                    color = agent.getColor()
+                a_y = ((y - self.y_min) + 1) * scale
+                a_x = ((x - self.x_min) + 1) * scale
+                canvas.create_oval(a_x, a_y, a_x + scale, a_y + scale, outline = outline, fill = color)
 
 world = World()
 
-width = 120
+width = 40
+#width = 120
 height = 40
+scale = 10
 
 for i in xrange(0, width):
     world.seedAgent(Blocker(), i, 0)
@@ -220,26 +214,44 @@ for i in xrange(0, height):
 road = VerticalRoad()
 world.seedAgent(road, width/2, height/2)
 
-
-realtime = len(sys.argv) > 1 and sys.argv[1] == "realtime"
-
-t = time.time()
-
-steps = 0
-while True:
-    steps += 1
-
+print("Performing initial simulation of 1000 steps...")
+for i in xrange(0, 1000):
     world.update()
 
-    if realtime:
-        world.draw()
-        print("Steps: {}".format(steps))
-        time.sleep(1.0/20)
-    else:
-        if steps % 1000 == 0:
-            world.draw()
-            print("Steps: {}".format(steps))
-            new_t = time.time()
-            elapsed_time = new_t - t
-            t = new_t
-            print("Steps per second: {}".format(1000 / elapsed_time))
+import Tkinter
+root = Tkinter.Tk()
+
+def kp(event):
+    if event.keysym == 'Escape':
+        root.destroy()
+root.bind_all('<KeyPress>', kp)
+
+canvas = Tkinter.Canvas(root, width = (width+3) * scale, height = (height+3) * scale, background = 'black')
+canvas.pack()
+
+updates = 200
+steps = 0
+
+def update():
+    global world, canvas, root, scale, updates, steps
+
+    start = time.time()
+    for i in xrange(0, updates):
+        world.update()
+    end = time.time()
+    steps += updates
+
+    if (end - start) > 1:
+        updates = updates / 2
+    elif (end - start) < 0.8:
+        updates = int(updates * 1.2)
+    print("Took {:.2f}s to simulate. Adjusted to {} updates. Total steps: {}".format(end - start, updates, steps))
+    world.draw(canvas, scale)
+    canvas.update_idletasks()
+    root.after(1000 - int((end - start) * 1000), update)
+
+root.after(0, update)
+root.attributes('-topmost', 1)
+root.update()
+root.attributes('-topmost', 0)
+root.mainloop()
